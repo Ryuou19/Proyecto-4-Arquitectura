@@ -11,71 +11,115 @@ import java.nio.file.Files;
 import java.util.List;
 
 public class Interfaz extends Application {
-    private MaquinaVirtual vm;
+    private MaquinaVirtual maquina;
 
     @Override
     public void start(Stage stage) {
-        vm = new MaquinaVirtual();
+        maquina = new MaquinaVirtual();
 
-        // Layout principal
-        BorderPane root = new BorderPane();
-        
-        // Panel superior: Controles
-        HBox controls = new HBox(10);
-        Button loadButton = new Button("Cargar .hack");
-        Button runButton = new Button("Ejecutar");
-        Button stepButton = new Button("Paso a Paso");
-        Button resetButton = new Button("Resetear");
-        controls.getChildren().addAll(loadButton, runButton, stepButton, resetButton);
+        // Configuración de la interfaz
+        BorderPane panel = new BorderPane();
 
-        // Panel central: Memoria e Instrucciones
-        TextArea instructionsArea = new TextArea();
-        instructionsArea.setEditable(false);
-        TableView<String[]> memoryTable = new TableView<>();
+        // Botones
+        HBox botones = new HBox(10);
+        Button botonCargar = new Button("Cargar .hack");
+        Button botonEjecutar = new Button("Ejecutar");
+        Button botonPorPaso = new Button("Paso a Paso");
+        Button botonResetear = new Button("Resetear");
+        botones.getChildren().addAll(botonCargar, botonEjecutar, botonPorPaso, botonResetear);
+
+        // Tabla para las instrucciones
+        TableView<Tablas> tablaInstrucciones = new TableView<>();
+        TableColumn<Tablas, String> columnaCodigo = new TableColumn<>("Código Máquina");
+        columnaCodigo.setCellValueFactory(cellData -> cellData.getValue().codigoProperty());
+        columnaCodigo.setPrefWidth(150);
+
+        TableColumn<Tablas, String> columnaTraduccion = new TableColumn<>("Traducción");
+        columnaTraduccion.setCellValueFactory(cellData -> cellData.getValue().traduccionProperty());
+        columnaTraduccion.setPrefWidth(150);
+
+        tablaInstrucciones.getColumns().addAll(columnaCodigo, columnaTraduccion);
+
+        // Reducir el tamaño de fuente de la tabla
+        tablaInstrucciones.setStyle("-fx-font-size: 10px;");
+
+        // Área para mostrar los cambios en la memoria
+        TextArea areaMemoria = new TextArea();
+        areaMemoria.setEditable(false);
+        areaMemoria.setPrefHeight(200);
+        areaMemoria.setStyle("-fx-font-size: 10px;");
+
+        VBox centro = new VBox(10);
+        centro.getChildren().addAll(tablaInstrucciones, new Label("Cambios en la Memoria:"), areaMemoria);
 
         // Panel inferior: Consola
-        TextArea console = new TextArea();
-        console.setEditable(false);
+        TextArea consola = new TextArea();
+        consola.setEditable(false);
 
-        root.setTop(controls);
-        root.setCenter(new VBox(instructionsArea, memoryTable));
-        root.setBottom(console);
+        // Diseño general
+        panel.setTop(botones);
+        panel.setCenter(centro);
+        panel.setBottom(consola);
 
         // Acciones de botones
-        loadButton.setOnAction(e -> loadProgram(stage, instructionsArea, console));
-        stepButton.setOnAction(e -> {
-            vm.step();
-            updateUI(instructionsArea, memoryTable, console);
+        botonCargar.setOnAction(e -> cargarPrograma(stage, tablaInstrucciones, consola));
+        botonPorPaso.setOnAction(e -> {
+            maquina.step();
+            actualizar(tablaInstrucciones, areaMemoria, consola);
         });
 
-        // Configuración de escena
-        Scene scene = new Scene(root, 800, 600);
+        // Configuración de la escena
+        Scene scene = new Scene(panel, 800, 600);
         stage.setScene(scene);
-        stage.setTitle("Hack Emulator");
+        stage.setTitle("Máquina Virtual");
         stage.show();
     }
 
+    private void cargarPrograma(Stage stage, TableView<Tablas> tablaInstrucciones, TextArea consola) {
+        FileChooser archivoCargado = new FileChooser();
+        archivoCargado.setTitle("Cargar Archivo.hack");
+        archivoCargado.getExtensionFilters().add(new FileChooser.ExtensionFilter("Archivos .hack", "*.hack"));
 
-    private void loadProgram(Stage stage, TextArea instructionsArea, TextArea console) {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Cargar Archivo .hack");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Archivos .hack", "*.hack"));
-
-        File file = fileChooser.showOpenDialog(stage);
-        if (file != null) {
+        File archivo = archivoCargado.showOpenDialog(stage);
+        if (archivo != null) {
             try {
-                List<String> lines = Files.readAllLines(file.toPath());
-                vm.loadProgram(lines.toArray(new String[0]));
-                instructionsArea.setText(String.join("\n", lines));
-                console.appendText("Programa cargado: " + file.getName() + "\n");
+                List<String> lineasMaquina = Files.readAllLines(archivo.toPath());
+                maquina.loadProgram(lineasMaquina.toArray(new String[0]));
+
+                // Llena la tabla con las instrucciones
+                tablaInstrucciones.getItems().clear();
+                for (int i = 0; i < lineasMaquina.size(); i++) {
+                    String codigo = lineasMaquina.get(i);
+                    String traduccion = Decodificador.decodeInstruction(codigo);
+                    tablaInstrucciones.getItems().add(new Tablas(codigo, traduccion));
+                }
+
+                consola.appendText("Programa cargado: " + archivo.getName() + "\n");
             } catch (IOException ex) {
-                console.appendText("Error al cargar el archivo: " + ex.getMessage() + "\n");
+                consola.appendText("Error al cargar el archivo: " + ex.getMessage() + "\n");
             }
         }
     }
 
-    private void updateUI(TextArea instructionsArea, TableView<String[]> memoryTable, TextArea console) {
-        // Aquí actualizar la memoria y mostrar en la tabla
-        console.appendText("Ejecución paso a paso completada.\n");
+    private void actualizar(TableView<Tablas> tablaInstrucciones, TextArea areaMemoria, TextArea consola) {
+        int pc = maquina.getPC();
+        if (pc < tablaInstrucciones.getItems().size()) {
+            Tablas instruccionActual = tablaInstrucciones.getItems().get(pc);
+            consola.appendText("Ejecutando: " + instruccionActual.getTraduccion() + "\n");
+    
+            // Mostrar cambios en la memoria
+            String cambiosMemoria = maquina.getMemoryState();
+            areaMemoria.setText(cambiosMemoria); // Actualiza el área de texto
+        } else {
+            consola.appendText("No hay más instrucciones para ejecutar.\n");
+        }
     }
+    
+    
+    
+
+    
+    
 }
+
+
