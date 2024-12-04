@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Main",
+            "request": "launch",
+            "mainClass": "Main",
+            "projectName": "Proyecto-4-Arquitectura_18e6c1b9",
+            "vmArgs": "--module-path ./javafx-sdk-20.0.2/lib --add-modules=javafx.controls,javafx.fxml"
+        }
+    ]
+}

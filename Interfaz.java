@@ -4,6 +4,9 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.util.Duration;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,6 +15,7 @@ import java.util.List;
 
 public class Interfaz extends Application {
     private MaquinaVirtual maquina;
+    private Timeline timeline;
 
     @Override
     public void start(Stage stage) {
@@ -63,9 +67,45 @@ public class Interfaz extends Application {
 
         // Acciones de botones
         botonCargar.setOnAction(e -> cargarPrograma(stage, tablaInstrucciones, consola));
+
         botonPorPaso.setOnAction(e -> {
             maquina.step();
             actualizar(tablaInstrucciones, areaMemoria, consola);
+        });
+
+        botonEjecutar.setOnAction(e -> {
+            if (timeline != null && timeline.getStatus() == Timeline.Status.RUNNING) {
+                timeline.stop();
+                consola.appendText("Ejecución detenida.\n");
+                botonEjecutar.setText("Ejecutar");
+                return;
+            }
+
+            consola.appendText("Iniciando ejecución continua.\n");
+            botonEjecutar.setText("Detener");
+
+            timeline = new Timeline(new KeyFrame(Duration.millis(500), event -> {
+                if (maquina.getPC() < tablaInstrucciones.getItems().size()) {
+                    maquina.step();
+                    actualizar(tablaInstrucciones, areaMemoria, consola);
+                } else {
+                    consola.appendText("Ejecución completa.\n");
+                    int resultado = maquina.getMemoryValue(16); // Cambia 16 por la dirección deseada
+                    consola.appendText("El valor guardado en la memoria final es: " + resultado + "\n");
+                    timeline.stop();
+                    botonEjecutar.setText("Ejecutar");
+                }
+            }));
+
+            timeline.setCycleCount(Timeline.INDEFINITE);
+            timeline.play();
+        });
+
+        botonResetear.setOnAction(e -> {
+            maquina.reset();
+            tablaInstrucciones.getItems().clear();
+            areaMemoria.clear();
+            consola.clear();
         });
 
         // Configuración de la escena
@@ -86,10 +126,12 @@ public class Interfaz extends Application {
                 List<String> lineasMaquina = Files.readAllLines(archivo.toPath());
                 maquina.loadProgram(lineasMaquina.toArray(new String[0]));
 
+                // Inicializar valores dinámicos en memoria basados en las instrucciones
+                inicializarMemoria(lineasMaquina);
+
                 // Llena la tabla con las instrucciones
                 tablaInstrucciones.getItems().clear();
-                for (int i = 0; i < lineasMaquina.size(); i++) {
-                    String codigo = lineasMaquina.get(i);
+                for (String codigo : lineasMaquina) {
                     String traduccion = Decodificador.decodeInstruction(codigo);
                     tablaInstrucciones.getItems().add(new Tablas(codigo, traduccion));
                 }
@@ -101,25 +143,35 @@ public class Interfaz extends Application {
         }
     }
 
+
+    private void inicializarMemoria(List<String> instrucciones) {
+        // Recorrer las instrucciones y buscar valores para inicializar la memoria
+        for (String instruccion : instrucciones) {
+            if (instruccion.startsWith("000000000")) { // Verifica si es una instrucción tipo A (@value)
+                int direccion = Integer.parseInt(instruccion.substring(1), 2);
+                if (direccion >= 0 && direccion < 32768) { // Verifica que la dirección esté dentro de la memoria
+                    maquina.setMemoryValue(direccion, direccion + 10); // Inicializa la memoria con valores basados en la dirección
+                }
+            }
+        }
+    }
+
+
     private void actualizar(TableView<Tablas> tablaInstrucciones, TextArea areaMemoria, TextArea consola) {
         int pc = maquina.getPC();
         if (pc < tablaInstrucciones.getItems().size()) {
             Tablas instruccionActual = tablaInstrucciones.getItems().get(pc);
             consola.appendText("Ejecutando: " + instruccionActual.getTraduccion() + "\n");
-    
+
+            // Resalta la fila actual
+            tablaInstrucciones.getSelectionModel().clearAndSelect(pc);
+            tablaInstrucciones.scrollTo(pc);
+
             // Mostrar cambios en la memoria
             String cambiosMemoria = maquina.getMemoryState();
-            areaMemoria.setText(cambiosMemoria); // Actualiza el área de texto
+            areaMemoria.appendText(cambiosMemoria); // Agrega los cambios a la vista
         } else {
             consola.appendText("No hay más instrucciones para ejecutar.\n");
         }
     }
-    
-    
-    
-
-    
-    
 }
-
-
