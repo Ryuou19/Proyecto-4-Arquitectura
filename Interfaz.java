@@ -148,6 +148,7 @@ public class Interfaz extends Application {
         // Recorrer las instrucciones y buscar valores para inicializar la memoria
         for (String instruccion : instrucciones) {
             if (instruccion.startsWith("000000000")) { // Verifica si es una instrucción tipo A (@value)
+<<<<<<< HEAD
                 try {
                     int direccion = Integer.parseInt(instruccion.substring(1), 2);
                     if (direccion >= 0 && direccion < 32768) { // Verifica que la dirección esté dentro de la memoria
@@ -155,6 +156,11 @@ public class Interfaz extends Application {
                     }
                 } catch (NumberFormatException e) {
                     System.err.println("Error al interpretar la instrucción: " + instruccion);
+=======
+                int direccion = Integer.parseInt(instruccion.substring(1), 2);
+                if (direccion >= 0 && direccion < 32768) { // Verifica que la dirección esté dentro de la memoria
+                    maquina.setMemoryValue(direccion, direccion + 10); // Inicializa la memoria con valores basados en la dirección
+>>>>>>> origin/main
                 }
             }
         }
