@@ -54,6 +54,7 @@ public class Decodificador {
         jumpTable.put("111", "JMP");
     }
 
+    // Procesa las etiquetas para asignar direcciones y reemplazar símbolos
     public static String[] processLabels(String[] lines) {
         labelTable.clear();
         reverseSymbolTable.clear();
@@ -65,8 +66,7 @@ public class Decodificador {
             line = line.trim();
             if (line.startsWith("(") && line.endsWith(")")) {
                 String label = line.substring(1, line.length() - 1);
-                labelTable.put(label, lineNumber);
-                reverseSymbolTable.put(lineNumber, label); // Mapeo inverso
+                labelTable.put(label, lineNumber); // Asocia la etiqueta a la línea
             } else if (!line.isEmpty() && !line.startsWith("//")) {
                 processedLines.add(line);
                 lineNumber++;
@@ -75,16 +75,17 @@ public class Decodificador {
 
         // Segunda pasada: reemplazar etiquetas con direcciones
         List<String> result = new ArrayList<>();
-        int nextVariableAddress = 16;
+        int nextVariableAddress = 16; // Comienza a asignar direcciones de variables desde 16
 
         for (String line : processedLines) {
             if (line.startsWith("@") && !Character.isDigit(line.charAt(1))) {
                 String symbol = line.substring(1);
                 if (labelTable.containsKey(symbol)) {
+                    // Si la etiqueta ya está definida, reemplázala por la dirección correspondiente
                     int address = labelTable.get(symbol);
                     result.add("@" + address);
                 } else if (!reverseSymbolTable.containsValue(symbol)) {
-                    // Es una nueva variable
+                    // Si es una nueva variable, asignar una dirección única
                     labelTable.put(symbol, nextVariableAddress);
                     reverseSymbolTable.put(nextVariableAddress, symbol);
                     result.add("@" + nextVariableAddress);
@@ -100,6 +101,7 @@ public class Decodificador {
         return result.toArray(new String[0]);
     }
 
+    // Decodifica una instrucción binaria a su formato Hack correspondiente
     public static String decodeInstruction(String binary) {
         if (binary.charAt(0) == '0') {
             // Es una instrucción A
@@ -116,6 +118,7 @@ public class Decodificador {
         }
     }
 
+    // Decodifica una instrucción C (comp, dest, jump)
     private static String decodeCInstruction(String binary) {
         // Campos: comp, dest, jump
         String comp = binary.substring(3, 10);
@@ -128,10 +131,12 @@ public class Decodificador {
 
         StringBuilder result = new StringBuilder();
 
+        // Si hay una parte dest, agregarla
         if (!destMnemonic.isEmpty()) {
             result.append(destMnemonic).append("=");
         }
         result.append(compMnemonic);
+        // Si hay una parte jump, agregarla
         if (!jumpMnemonic.isEmpty()) {
             result.append(";").append(jumpMnemonic);
         }
